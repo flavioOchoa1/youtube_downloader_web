@@ -1,6 +1,8 @@
 # Directorios y archivos de entorno virtual
-.env
+config.properties
 downloads/
 __pycache__/
 venv/
 venv/Lib
+
+
