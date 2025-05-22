@@ -1,0 +1,89 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 40px;
+}
+
+.container {
+    background-color: #fff;
+    max-width: 800px;
+    margin: auto;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+}
+
+.radio-group {
+    margin: 10px 0;
+    display: flex;
+    gap: 20px;
+}
+
+button {
+    background-color: #1db954;
+    color: white;
+    padding: 10px 25px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #148d3e;
+}
+
+.result-container {
+    margin-top: 30px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+#video-info {
+    flex: 1;
+    text-align: center;
+}
+
+#video-title {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}
+
+#video-thumbnail {
+    max-width: 100%;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.spinner {
+    margin: 20px auto;
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #1db954;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.hidden {
+    display: none;
+}
