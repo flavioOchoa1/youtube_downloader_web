@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, send_file
 from yt_dlp import YoutubeDL
 import configparser
 import os
+import re
 
 app = Flask(__name__)
 
@@ -18,14 +19,24 @@ ydl_opts_common = {
     'noplaylist': True,
 }
 
+YOUTUBE_URL_REGEX = re.compile(
+    r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+$'
+)
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
+def is_valid_youtube_url(url):
+    return bool(url and YOUTUBE_URL_REGEX.match(url))
 
 @app.route('/fetch_details', methods=['POST'])
 def fetch_details():
     data = request.get_json()
     video_url = data.get('url')
+    
+    if not is_valid_youtube_url(video_url):
+        return jsonify({'error': 'URL no soportada. Por favor ingresa un enlace válido de YouTube.'}), 400
 
     try:
         with YoutubeDL(ydl_opts_common) as ydl:
@@ -42,9 +53,10 @@ def fetch_details():
 def download():
     url = request.form.get('url')
     format_type = request.form.get('format')
-
-    if not url or not format_type:
-        return "URL o formato no válido", 400
+    
+    # Validar que la URL sea de YouTube
+    if not url or not format_type or not is_valid_youtube_url(url):
+        return "URL o formato no válido o no soportado", 400
 
     download_opts = {
         'ffmpeg_location': ffmpeg_path,
