@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_file
 from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError
 import configparser
 import os
 import re
@@ -19,28 +20,28 @@ ydl_opts_common = {
     'noplaylist': True,
 }
 
-YOUTUBE_URL_REGEX = re.compile(
-    r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+$'
+URL_REGEX = re.compile(
+    r'^(https?://)?([a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}(/.*)?$'
 )
+
+def is_valid_url(url):
+    return bool(url and URL_REGEX.match(url))
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-def is_valid_youtube_url(url):
-    return bool(url and YOUTUBE_URL_REGEX.match(url))
-
 @app.route('/fetch_details', methods=['POST'])
 def fetch_details():
     data = request.get_json()
-    video_url = data.get('url')
+    url = data.get('url')
     
-    if not is_valid_youtube_url(video_url):
-        return jsonify({'error': 'URL no soportada. Por favor ingresa un enlace válido de YouTube.'}), 400
+    if not url or not is_valid_url(url):
+        return jsonify({'error': 'URL no válida o no soportada'}), 400
 
     try:
         with YoutubeDL(ydl_opts_common) as ydl:
-            info = ydl.extract_info(video_url, download=False)
+            info = ydl.extract_info(url, download=False)
             return jsonify({
                 'title': info.get('title'),
                 'thumbnail': info.get('thumbnail')
@@ -53,9 +54,8 @@ def fetch_details():
 def download():
     url = request.form.get('url')
     format_type = request.form.get('format')
-    
-    # Validar que la URL sea de YouTube
-    if not url or not format_type or not is_valid_youtube_url(url):
+
+    if not url or not format_type or not is_valid_url(url):
         return "URL o formato no válido o no soportado", 400
 
     download_opts = {
@@ -63,22 +63,34 @@ def download():
         'outtmpl': 'downloads/%(title)s.%(ext)s',
         'quiet': True,
         'format': 'bestaudio/best' if format_type == 'mp3' else 'best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio' if format_type == 'mp3' else 'FFmpegVideoConvertor',
-            'preferredcodec': 'mp3' if format_type == 'mp3' else 'mp4',
-            'preferredquality': '192',
-        }]
     }
 
-    with YoutubeDL(download_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info)
-        if format_type == 'mp3':
-            filename = filename.rsplit('.', 1)[0] + '.mp3'
-        else:
-            filename = filename.rsplit('.', 1)[0] + '.mp4'
+    if format_type == 'mp3':
+        download_opts['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }]
+    elif format_type == 'mp4':
+        download_opts['postprocessors'] = [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }]
 
-    return send_file(filename, as_attachment=True)
+    try:
+        with YoutubeDL(download_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            if format_type == 'mp3':
+                filename = filename.rsplit('.', 1)[0] + '.mp3'
+            else:
+                filename = filename.rsplit('.', 1)[0] + '.mp4'
+        return send_file(filename, as_attachment=True)
+    except DownloadError:
+        return "No se pudo descargar el video. El enlace no es válido, no existe o no es soportado.", 400
+    except Exception as e:
+        print(f"Error inesperado: {e}")
+        return "Ocurrió un error inesperado al procesar la descarga.", 500
 
 if __name__ == '__main__':
     os.makedirs('downloads', exist_ok=True)
