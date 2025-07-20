@@ -4,6 +4,7 @@ from yt_dlp.utils import DownloadError
 import configparser
 import os
 import re
+import urllib.parse
 
 app = Flask(__name__)
 
@@ -26,6 +27,18 @@ URL_REGEX = re.compile(
 
 def is_valid_url(url):
     return bool(url and URL_REGEX.match(url))
+
+def clean_youtube_url(url):
+    """
+    Si el enlace es de YouTube y tiene parámetros de lista, lo limpia para dejar solo el video.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if 'youtube.com' in parsed.netloc and 'v=' in parsed.query:
+        qs = urllib.parse.parse_qs(parsed.query)
+        video_id = qs.get('v', [None])[0]
+        if video_id:
+            return f"https://www.youtube.com/watch?v={video_id}"
+    return url
 
 @app.route('/')
 def index():
@@ -57,6 +70,9 @@ def download():
 
     if not url or not format_type or not is_valid_url(url):
         return "URL o formato no válido o no soportado", 400
+
+    # Limpiar el enlace si es de YouTube con lista
+    url = clean_youtube_url(url)
 
     download_opts = {
         'ffmpeg_location': ffmpeg_path,
