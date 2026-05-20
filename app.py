@@ -12,14 +12,63 @@ app = Flask(__name__)
 config = configparser.ConfigParser()
 config.read('config.properties')
 ffmpeg_path = config['DEFAULT']['FFMPEG_PATH']
+cookies_file = config['DEFAULT'].get('COOKIES_FILE', fallback='').strip()
+cookies_from_browser = config['DEFAULT'].get('COOKIES_FROM_BROWSER', fallback='').strip()
+youtube_player_client = config['DEFAULT'].get('YOUTUBE_PLAYER_CLIENT', fallback='android').strip()
+
+def parse_cookies_from_browser(value):
+    if not value:
+        return None
+
+    browser, _, profile = value.partition(':')
+    browser = browser.strip().lower()
+    profile = profile.strip()
+    return (browser, profile, None, None) if profile else (browser,)
+
+def build_ydl_opts(**extra_opts):
+    opts = {
+        'ffmpeg_location': ffmpeg_path,
+        'quiet': True,
+        'no_warnings': True,
+        'noplaylist': True,
+    }
+
+    if youtube_player_client:
+        opts['extractor_args'] = {'youtube': {'player_client': [youtube_player_client]}}
+
+    cookiefile_path = cookies_file if os.path.isabs(cookies_file) else os.path.abspath(cookies_file)
+    if cookies_file and os.path.exists(cookiefile_path):
+        opts['cookiefile'] = cookiefile_path
+
+    browser_cookies = parse_cookies_from_browser(cookies_from_browser)
+    if browser_cookies:
+        opts['cookiesfrombrowser'] = browser_cookies
+
+    opts.update(extra_opts)
+    return opts
+
+def explain_download_error(error):
+    message = str(error)
+    if 'Sign in to confirm' in message and 'not a bot' in message:
+        return (
+            'YouTube esta pidiendo verificar que no eres un bot. '
+            'La app esta usando el cliente android de yt-dlp para evitar ese bloqueo. '
+            'Si persiste, exporta cookies a cookies.txt y configura COOKIES_FILE=cookies.txt.'
+        )
+    if 'Could not copy Chrome cookie database' in message:
+        return (
+            'No se pudieron leer las cookies del navegador porque el perfil esta abierto o bloqueado. '
+            'Cierra Brave/Chrome por completo o usa COOKIES_FILE=cookies.txt.'
+        )
+    if 'Failed to decrypt with DPAPI' in message:
+        return (
+            'No se pudieron desencriptar las cookies del navegador en Windows. '
+            'Usa cookies.txt exportado desde el navegador y configura COOKIES_FILE=cookies.txt.'
+        )
+    return 'No se pudo obtener o descargar el video. Revisa el enlace o la salida de consola.'
 
 # Configuración YT-DLP
-ydl_opts_common = {
-    'ffmpeg_location': ffmpeg_path,
-    'quiet': True,
-    'no_warnings': True,
-    'noplaylist': True,
-}
+ydl_opts_common = build_ydl_opts()
 
 URL_REGEX = re.compile(
     r'^(https?://)?([a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}(/.*)?$'
@@ -61,7 +110,7 @@ def fetch_details():
             })
     except Exception as e:
         print(f"Error al obtener detalles: {e}")
-        return jsonify({'error': 'No se pudo obtener la información del video.'}), 500
+        return jsonify({'error': explain_download_error(e)}), 500
 
 @app.route('/download', methods=['POST'])
 def download():
@@ -74,12 +123,10 @@ def download():
     # Limpiar el enlace si es de YouTube con lista
     url = clean_youtube_url(url)
 
-    download_opts = {
-        'ffmpeg_location': ffmpeg_path,
-        'outtmpl': 'downloads/%(title)s.%(ext)s',
-        'quiet': True,
-        'format': 'bestaudio/best' if format_type == 'mp3' else 'best',
-    }
+    download_opts = build_ydl_opts(
+        outtmpl='downloads/%(title)s.%(ext)s',
+        format='bestaudio/best' if format_type == 'mp3' else 'best',
+    )
 
     if format_type == 'mp3':
         download_opts['postprocessors'] = [{
@@ -102,12 +149,13 @@ def download():
             else:
                 filename = filename.rsplit('.', 1)[0] + '.mp4'
         return send_file(filename, as_attachment=True)
-    except DownloadError:
-        return "No se pudo descargar el video. El enlace no es válido, no existe o no es soportado.", 400
+    except DownloadError as e:
+        print(f"Error de descarga: {e}")
+        return explain_download_error(e), 400
     except Exception as e:
         print(f"Error inesperado: {e}")
         return "Ocurrió un error inesperado al procesar la descarga.", 500
 
 if __name__ == '__main__':
     os.makedirs('downloads', exist_ok=True)
-    app.run(debug=True)
+    app.run(debug=False, use_reloader=False)
