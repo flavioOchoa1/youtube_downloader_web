@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from yt_dlp import YoutubeDL
@@ -113,6 +113,10 @@ def clean_youtube_url(url):
         if video_id:
             return f"https://www.youtube.com/watch?v={video_id}"
     return url
+
+@app.route('/robots.txt')
+def robots():
+    return send_from_directory('static', 'robots.txt', mimetype='text/plain')
 
 @app.route('/')
 def index():

@@ -90,16 +90,6 @@ input {
     font: inherit;
 }
 
-#spaceCanvas {
-    position: fixed;
-    inset: 0;
-    z-index: -4;
-    display: none;
-    width: 100%;
-    height: 100%;
-}
-
-:root[data-theme="light"] #spaceCanvas,
 :root[data-theme="light"] .cosmic-scene {
     opacity: 0;
 }
@@ -667,6 +657,12 @@ h1 {
     border: 1px solid var(--line);
     border-radius: 8px;
     box-shadow: var(--shadow);
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+#video-thumbnail.hidden {
+    opacity: 0;
 }
 
 .spinner {
@@ -943,5 +939,9 @@ h1 {
 
     h1 {
         font-size: clamp(2.7rem, 16vw, 4.7rem);
+    }
+
+    .dot-vortex span {
+        animation-duration: 18s;
     }
 }

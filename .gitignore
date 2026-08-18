@@ -34,3 +34,7 @@ skills-lock.json
 .claude
 
 tests
+
+.coverage
+
+static/robots.txt
