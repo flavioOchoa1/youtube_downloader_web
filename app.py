@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_file
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 from werkzeug.utils import secure_filename
@@ -10,6 +12,13 @@ import urllib.parse
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["60 per minute"],
+    storage_uri="memory://",
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,7 +89,10 @@ def explain_download_error(error):
         )
     return 'No se pudo obtener o descargar el video. Revisa el enlace o la salida de consola.'
 
-# Configuración YT-DLP
+# Configuración YT-DLP: se construye una vez al iniciar la app.
+# Es seguro porque build_ydl_opts() solo lee variables de config que no cambian
+# durante la vida del proceso. Cada request crea su propio objeto YoutubeDL
+# con opciones override vía build_ydl_opts(**extra_opts).
 ydl_opts_common = build_ydl_opts()
 
 URL_REGEX = re.compile(
@@ -107,6 +119,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/fetch_details', methods=['POST'])
+@limiter.limit("20 per minute")
 def fetch_details():
     data = request.get_json()
     url = data.get('url')
@@ -126,6 +139,7 @@ def fetch_details():
         return jsonify({'error': explain_download_error(e)}), 500
 
 @app.route('/download', methods=['POST'])
+@limiter.limit("10 per minute")
 def download():
     url = request.form.get('url')
     format_type = request.form.get('format')
@@ -167,7 +181,7 @@ def download():
         return send_file(filename, as_attachment=True)
     except DownloadError as e:
         logger.warning("Error de descarga: %s", e)
-        return explain_download_error(e), 400
+        return jsonify({'error': explain_download_error(e)}), 400
     except Exception as e:
         logger.error("Error inesperado: %s", e)
         return jsonify({'error': 'Ocurrió un error inesperado al procesar la descarga.'}), 500
