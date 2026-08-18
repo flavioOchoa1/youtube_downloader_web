@@ -1,20 +1,32 @@
 from flask import Flask, render_template, request, jsonify, send_file
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
+from werkzeug.utils import secure_filename
 import configparser
+import logging
 import os
 import re
 import urllib.parse
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
 
-# Leer configuración segura
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+)
+logger = logging.getLogger(__name__)
+
+# Leer configuración: variables de entorno tienen prioridad sobre config.properties
 config = configparser.ConfigParser()
 config.read('config.properties')
-ffmpeg_path = config['DEFAULT']['FFMPEG_PATH']
-cookies_file = config['DEFAULT'].get('COOKIES_FILE', fallback='').strip()
-cookies_from_browser = config['DEFAULT'].get('COOKIES_FROM_BROWSER', fallback='').strip()
-youtube_player_client = config['DEFAULT'].get('YOUTUBE_PLAYER_CLIENT', fallback='android').strip()
+
+ffmpeg_path = os.environ.get('FFMPEG_PATH') or config['DEFAULT'].get('FFMPEG_PATH', '')
+cookies_file = (os.environ.get('COOKIES_FILE') or config['DEFAULT'].get('COOKIES_FILE', '')).strip()
+cookies_from_browser = (os.environ.get('COOKIES_FROM_BROWSER') or config['DEFAULT'].get('COOKIES_FROM_BROWSER', '')).strip()
+youtube_player_client = (os.environ.get('YOUTUBE_PLAYER_CLIENT') or config['DEFAULT'].get('YOUTUBE_PLAYER_CLIENT', 'android')).strip()
+
+ALLOWED_FORMATS = {'mp3', 'mp4'}
 
 def parse_cookies_from_browser(value):
     if not value:
@@ -31,6 +43,7 @@ def build_ydl_opts(**extra_opts):
         'quiet': True,
         'no_warnings': True,
         'noplaylist': True,
+        'restrictfilenames': True,
     }
 
     if youtube_player_client:
@@ -109,7 +122,7 @@ def fetch_details():
                 'thumbnail': info.get('thumbnail')
             })
     except Exception as e:
-        print(f"Error al obtener detalles: {e}")
+        logger.error("Error al obtener detalles: %s", e)
         return jsonify({'error': explain_download_error(e)}), 500
 
 @app.route('/download', methods=['POST'])
@@ -118,7 +131,10 @@ def download():
     format_type = request.form.get('format')
 
     if not url or not format_type or not is_valid_url(url):
-        return "URL o formato no válido o no soportado", 400
+        return jsonify({'error': 'URL o formato no válido'}), 400
+
+    if format_type not in ALLOWED_FORMATS:
+        return jsonify({'error': f'Formato no soportado: {format_type}'}), 400
 
     # Limpiar el enlace si es de YouTube con lista
     url = clean_youtube_url(url)
@@ -150,11 +166,22 @@ def download():
                 filename = filename.rsplit('.', 1)[0] + '.mp4'
         return send_file(filename, as_attachment=True)
     except DownloadError as e:
-        print(f"Error de descarga: {e}")
+        logger.warning("Error de descarga: %s", e)
         return explain_download_error(e), 400
     except Exception as e:
-        print(f"Error inesperado: {e}")
-        return "Ocurrió un error inesperado al procesar la descarga.", 500
+        logger.error("Error inesperado: %s", e)
+        return jsonify({'error': 'Ocurrió un error inesperado al procesar la descarga.'}), 500
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    logger.error("Error interno del servidor: %s", e)
+    return render_template('500.html'), 500
+
 
 if __name__ == '__main__':
     os.makedirs('downloads', exist_ok=True)

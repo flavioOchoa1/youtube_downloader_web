@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página no encontrada — Music Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<canvas id="spaceCanvas" aria-hidden="true"></canvas>
+<div class="cosmic-scene" aria-hidden="true"></div>
+
+<main class="app-shell">
+    <header class="app-header">
+        <div class="brand">
+            <span class="brand-mark">DM</span>
+            <span>Music Downloader</span>
+        </div>
+    </header>
+
+    <section class="error-page">
+        <h1 class="error-code">404</h1>
+        <p class="error-message">Esta página no existe.</p>
+        <a href="/" class="error-link">Volver al inicio</a>
+    </section>
+</main>
+</body>
+</html>

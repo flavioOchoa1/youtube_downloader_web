@@ -1,6 +1,36 @@
-# Directorios y archivos de entorno virtual
-config.properties
-downloads/
+# Python
 __pycache__/
+*.pyc
+*.pyo
+
+# Entorno virtual
 venv/
-venv/Lib
+.venv/
+
+# Configuracion local
+config.properties
+.env
+
+# Downloads
+downloads/
+
+# Flask
+instance/
+
+# Tests
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+skills-lock.json
+
+.agents
+
+.claude
+
+tests

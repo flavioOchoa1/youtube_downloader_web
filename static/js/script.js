@@ -9,6 +9,8 @@ let stars = [];
 let milkyWay = [];
 let meteors = [];
 let animationFrame = null;
+let fetchAbortController = null;
+let debounceTimer = null;
 
 function applySavedTheme() {
     const savedTheme = localStorage.getItem("download-theme") || "dark";
@@ -174,6 +176,21 @@ function drawStars(time) {
     animationFrame = requestAnimationFrame(drawStars);
 }
 
+function showToast(message, type) {
+    const toast = document.getElementById("toast");
+    if (!toast) {
+        return;
+    }
+    toast.textContent = message;
+    toast.className = "toast " + (type || "");
+    requestAnimationFrame(() => {
+        toast.classList.add("visible");
+    });
+    setTimeout(() => {
+        toast.classList.remove("visible");
+    }, 3000);
+}
+
 function fetchVideoDetails() {
     const urlInput = document.getElementById("url");
     const url = urlInput.value.trim();
@@ -189,6 +206,11 @@ function fetchVideoDetails() {
         return;
     }
 
+    if (fetchAbortController) {
+        fetchAbortController.abort();
+    }
+    fetchAbortController = new AbortController();
+
     titleEl.classList.add("hidden");
     thumbEl.classList.add("hidden");
     spinner.classList.remove("hidden");
@@ -196,7 +218,8 @@ function fetchVideoDetails() {
     fetch("/fetch_details", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url }),
+        signal: fetchAbortController.signal
     })
     .then(response => {
         return response.json().then(data => {
@@ -216,17 +239,43 @@ function fetchVideoDetails() {
 
         titleEl.textContent = data.title;
         thumbEl.src = data.thumbnail;
+        thumbEl.alt = data.title || "Miniatura del video";
 
         spinner.classList.add("hidden");
         titleEl.classList.remove("hidden");
         thumbEl.classList.remove("hidden");
     })
     .catch(error => {
+        if (error.name === "AbortError") {
+            return;
+        }
         console.error("Error al obtener detalles:", error);
         spinner.classList.add("hidden");
         titleEl.textContent = error.message || "No se pudo obtener la informacion del video.";
         titleEl.classList.remove("hidden");
     });
+}
+
+function handleUrlInput() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fetchVideoDetails, 300);
+}
+
+function resetDownloadButton() {
+    const btn = document.querySelector(".download-button");
+    if (btn) {
+        btn.classList.remove("loading");
+        btn.disabled = false;
+    }
+}
+
+function handleDownload() {
+    const btn = document.querySelector(".download-button");
+    if (btn) {
+        btn.classList.add("loading");
+        btn.disabled = true;
+        setTimeout(resetDownloadButton, 4000);
+    }
 }
 
 applySavedTheme();
