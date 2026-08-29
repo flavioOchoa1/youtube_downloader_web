@@ -38,3 +38,7 @@ tests
 .coverage
 
 static/robots.txt
+
+design-benchmark
+
+.opencode
