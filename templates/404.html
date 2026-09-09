@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Página no encontrada — Music Downloader</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>try { document.documentElement.dataset.theme = localStorage.getItem("download-theme") === "light" ? "light" : "dark"; } catch (_) {}</script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-<canvas id="spaceCanvas" aria-hidden="true"></canvas>
-<div class="cosmic-scene" aria-hidden="true"></div>
 
 <main class="app-shell">
     <header class="app-header">
-        <div class="brand">
-            <span class="brand-mark">DM</span>
+        <a class="brand" href="/">
+            <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             <span>Music Downloader</span>
-        </div>
+        </a>
     </header>
 
     <section class="error-page">
